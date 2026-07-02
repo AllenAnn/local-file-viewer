@@ -1,0 +1,32 @@
+{
+  "name": "local-file-viewer",
+  "version": "1.0.0",
+  "description": "本地文档预览工具",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^25.3.0",
+    "electron-builder": "^24.6.3"
+  },
+  "build": {
+    "appId": "com.local.fileviewer",
+    "productName": "本地文档预览工具",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        "portable"
+      ]
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "public/**/*",
+      "package.json"
+    ]
+  }
+}

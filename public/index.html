@@ -1,0 +1,3209 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文档预览工具</title>
+    <!-- 引入 Google Fonts (Outfit, Noto Sans SC, Playfair Display) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,700;1,400&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    
+    <!-- 引入预览所需的开源 CDN 库 -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jszip/dist/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/docx-preview@0.1.18/dist/docx-preview.min.js"></script>
+
+    <!-- ⚡ 引入官方 GitHub Markdown 排版基石与 Highlight.js 语法彩色高亮 -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css@5.2.0/github-markdown.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" id="hljsLight">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css" id="hljsDark" disabled>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+
+    <style>
+        :root {
+            /* 2026 高端现代轻盈流光色彩与环境深度体系 */
+            --bg-main: #f8fafc;            /* 极轻快温暖的浅灰蓝底色 */
+            --sidebar-bg: #ffffff;         /* 干净纯白侧栏 */
+            --sidebar-border: #e2e8f0;     /* 细腻灰边 */
+            --card-bg: #ffffff;            /* 内容卡片底色 */
+            --card-border: #e2e8f0;        /* 细腻边框 */
+            --text-main: #0f172a;          /* 深邃青灰黑 */
+            --text-muted: #64748b;         /* 清晰优雅次级灰 */
+            
+            /* 经典高科技感皇家蓝 */
+            --brand-color: #0969da;        
+            --brand-hover: #1d4ed8;
+            --brand-light: rgba(9, 105, 218, 0.04); 
+            --active-tint: rgba(9, 105, 218, 0.07); 
+            
+            --accent: #ef4444;             /* 珊瑚红 */
+            --success: #10b981;            /* 翡翠绿 */
+            --docx-bg: #f8fafc;            
+            
+            /* 2026 软性环境多重投影体系 (Soft Ambient Depth Shadows) */
+            --shadow-sm: 0 2px 8px rgba(15, 23, 42, 0.04);
+            --shadow-md: 0 10px 30px rgba(15, 23, 42, 0.05);
+            --shadow-lg: 0 20px 48px rgba(15, 23, 42, 0.08);
+            --shadow-ambient: 0 4px 20px rgba(15, 23, 42, 0.03);
+            --shadow-pop: 0 16px 36px rgba(15, 23, 42, 0.12); 
+            
+            --radius-lg: 16px;             /* 更大更现代的圆角 */
+            --radius-md: 10px;              
+            --radius-sm: 6px;
+
+            /* 2026 阻尼弹簧过渡曲线 */
+            --spring-transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.1);
+            --fast-transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        [data-theme="dark"] {
+            /* 暗色深邃星空探索风格 */
+            --bg-main: #080b11;
+            --sidebar-bg: #0e131f;
+            --sidebar-border: #1e293b;
+            --card-bg: #0e131f;
+            --card-border: #1e293b;
+            --text-main: #e2e8f0;
+            --text-muted: #94a3b8;
+            
+            --brand-color: #38bdf8;
+            --brand-hover: #0ea5e9;
+            --brand-light: rgba(56, 189, 248, 0.05);
+            --active-tint: rgba(56, 189, 248, 0.09);
+            
+            --accent: #f87171;
+            --success: #34d399;
+            --docx-bg: #080b11;
+            
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
+            --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.35);
+            --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.5);
+            --shadow-ambient: 0 4px 20px rgba(0, 0, 0, 0.25);
+            --shadow-pop: 0 16px 36px rgba(0, 0, 0, 0.5);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* 自定义极窄滚动条 (仅在滚动时显示，完全扁平化) */
+        ::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(100, 116, 139, 0.2);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(100, 116, 139, 0.4);
+        }
+
+        /* 顶部极细微流光进度条 */
+        .top-loader-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2.5px;
+            background: linear-gradient(90deg, transparent, var(--brand-color), transparent);
+            background-size: 200% 100%;
+            z-index: 10000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        .top-loader-bar.loading {
+            opacity: 1;
+            animation: flowStream 1.5s linear infinite;
+        }
+
+        /* ==========================================================================
+           📂 侧边栏 (全面增强呼吸感，增大各组件间隔)
+           ========================================================================== */
+        .sidebar {
+            width: 330px;
+            min-width: 330px;
+            background-color: var(--sidebar-bg);
+            border-right: 1px solid var(--sidebar-border);
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            z-index: 10;
+            transition: var(--spring-transition);
+        }
+
+        body.sidebar-collapsed .sidebar {
+            margin-left: -330px;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .sidebar-header {
+            padding: 32px 24px 20px 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .brand-section {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 4px;
+        }
+
+        .logo-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* 极轻量、极具细节科技感的 SVG 徽标插画 */
+        .logo-svg-brand {
+            stroke: var(--brand-color);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            flex-shrink: 0;
+        }
+        .brand-section:hover .logo-svg-brand {
+            transform: scale(1.1) rotate(6deg);
+        }
+
+        .logo-title h1 {
+            font-size: 14.5px;
+            font-weight: 700;
+            color: var(--text-main);
+            letter-spacing: 0.5px;
+            font-family: 'Outfit', -apple-system, sans-serif;
+            text-transform: uppercase;
+        }
+
+        .theme-toggle {
+            cursor: pointer;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            width: 28px;
+            height: 28px;
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--fast-transition);
+        }
+
+        .theme-toggle:hover {
+            color: var(--text-main);
+            background-color: var(--brand-light);
+        }
+
+        .theme-toggle svg {
+            transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .theme-toggle:hover svg {
+            transform: scale(1.1) rotate(15deg);
+        }
+
+        /* 路径选择配置 */
+        .dir-config-container {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 4px;
+        }
+
+        .dir-title-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
+            color: var(--text-muted);
+            font-weight: 600;
+            letter-spacing: 0.2px;
+        }
+
+        .dir-change-btn {
+            background-color: transparent;
+            border: 1px solid var(--sidebar-border);
+            color: var(--text-main);
+            font-size: 11px;
+            font-weight: 500;
+            cursor: pointer;
+            padding: 4px 10px;
+            border-radius: var(--radius-sm);
+            transition: var(--fast-transition);
+        }
+
+        .dir-change-btn:hover {
+            background-color: var(--brand-light);
+            border-color: var(--brand-color);
+            color: var(--brand-color);
+        }
+
+        .dir-input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .dir-input-icon {
+            position: absolute;
+            left: 10px;
+            stroke: var(--text-muted);
+            pointer-events: none;
+            width: 13px;
+            height: 13px;
+            transition: stroke 0.2s ease;
+        }
+
+        .dir-input {
+            width: 100%;
+            padding: 8px 12px 8px 28px;
+            border: 1px solid var(--sidebar-border);
+            background-color: transparent;
+            color: var(--text-main);
+            border-radius: var(--radius-md);
+            font-size: 11.5px;
+            outline: none;
+            text-overflow: ellipsis;
+            cursor: text;
+            font-family: 'Fira Code', monospace;
+            transition: var(--fast-transition);
+        }
+
+        .dir-input:focus {
+            border-color: var(--brand-color);
+            background-color: var(--sidebar-bg);
+            box-shadow: 0 0 0 1px var(--brand-color);
+        }
+        .dir-input:focus ~ .dir-input-icon {
+            stroke: var(--brand-color);
+        }
+
+        /* 搜索框 */
+        .search-container {
+            position: relative;
+            margin-top: 4px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 8px 52px 8px 32px;    /* 为右侧 ⌘K 腾出空间 */
+            border: 1px solid var(--sidebar-border);
+            background-color: transparent;
+            color: var(--text-main);
+            border-radius: var(--radius-md);
+            font-size: 12px;
+            outline: none;
+            transition: var(--fast-transition);
+        }
+
+        .search-input:focus {
+            border-color: var(--brand-color);
+            box-shadow: 0 0 0 1px var(--brand-color);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            stroke: var(--text-muted);
+            fill: none;
+            width: 14px;
+            height: 14px;
+            transition: stroke 0.2s ease;
+        }
+        .search-input:focus + .search-icon {
+            stroke: var(--brand-color);
+        }
+
+        /* ⌨️ 搜索框快捷键指示微章 (kbd) */
+        .kbd-hint {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 9px;
+            font-weight: 600;
+            color: var(--text-muted);
+            background-color: var(--sidebar-bg);
+            border: 1px solid var(--sidebar-border);
+            padding: 2.5px 5.5px;
+            border-radius: 4px;
+            pointer-events: auto;
+            cursor: pointer;
+            font-family: 'Outfit', sans-serif;
+            user-select: none;
+            transition: var(--fast-transition);
+        }
+        .kbd-hint:hover {
+            border-color: var(--brand-color);
+            color: var(--brand-color);
+            background-color: var(--brand-light);
+        }
+
+        /* 列表项的平滑微动效 - 更大气的行高与间隔，提升呼吸感 */
+        .file-list-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px 16px 24px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px; /* 增大间距，强化呼吸感 */
+        }
+
+        .file-item {
+            position: relative;
+            display: flex;
+            align-items: center;
+            padding: 12px 16px;
+            border-radius: var(--radius-md);
+            background-color: transparent;
+            cursor: pointer;
+            transition: var(--spring-transition);
+            gap: 14px;
+            border: 1px solid transparent;
+        }
+
+        .file-item::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%) scaleY(0);
+            width: 3.5px;
+            height: 18px;
+            background-color: var(--brand-color);
+            border-radius: 0 4px 4px 0;
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.2);
+        }
+
+        .file-item.active::before {
+            transform: translateY(-50%) scaleY(1);
+        }
+
+        .file-item:hover {
+            background-color: var(--brand-light);
+            border-color: var(--card-border);
+            transform: translateX(6px) scale(1.015); /* 带来轻微浮起与横向推开的呼吸感 */
+            box-shadow: var(--shadow-sm);
+        }
+
+        .file-item.active {
+            background-color: var(--active-tint);
+            border-color: rgba(9, 105, 218, 0.08);
+        }
+        
+        [data-theme="dark"] .file-item.active {
+            border-color: rgba(56, 189, 248, 0.15);
+        }
+
+        .item-svg-icon {
+            width: 18px;
+            height: 18px;
+            stroke-width: 1.8;
+            stroke: var(--text-muted);
+            fill: none;
+            flex-shrink: 0;
+            transition: var(--spring-transition);
+        }
+
+        .file-item:hover .item-svg-icon,
+        .file-item.active .item-svg-icon {
+            transform: scale(1.15) rotate(3deg);
+        }
+
+        .file-info {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .file-name {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-main);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .file-meta {
+            font-size: 10px;
+            color: var(--text-muted);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .sidebar-footer {
+            padding: 20px 24px;
+            border-top: 1px solid var(--sidebar-border);
+        }
+
+        .refresh-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            width: 100%;
+            padding: 9px;
+            background-color: transparent;
+            color: var(--text-main);
+            border: 1px solid var(--sidebar-border);
+            border-radius: var(--radius-md);
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: var(--fast-transition);
+        }
+
+        .refresh-btn:hover {
+            background-color: var(--brand-light);
+            border-color: var(--brand-color);
+            color: var(--brand-color);
+        }
+
+        .refresh-btn svg {
+            width: 13px;
+            height: 13px;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 1.5;
+            transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .refresh-btn:hover svg {
+            transform: rotate(360deg);
+        }
+
+        /* ==========================================================================
+           🖥&nbsp;主预览区与全局悬浮折叠按钮
+           ========================================================================== */
+        .preview-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            overflow: hidden;
+            position: relative;
+            z-index: 2; /* 确保在极光背景层 (z-index: 1) 之上渲染，防止背景穿透文档 */
+        }
+
+        .sidebar-toggle-btn {
+            position: absolute;
+            left: 16px;
+            top: 16px;
+            z-index: 100;
+            cursor: pointer;
+            border: 1px solid var(--sidebar-border);
+            background-color: var(--sidebar-bg);
+            color: var(--text-main);
+            width: 32px;
+            height: 32px;
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--fast-transition);
+        }
+
+        .sidebar-toggle-btn:hover {
+            background-color: var(--brand-light);
+            border-color: var(--brand-color);
+            color: var(--brand-color);
+            transform: scale(1.05);
+        }
+
+        .sidebar-toggle-btn svg {
+            width: 16px;
+            height: 16px;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 1.5;
+            transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        .sidebar-toggle-btn:hover svg {
+            animation: arrowWiggle 0.8s ease-in-out infinite;
+        }
+
+        body.sidebar-collapsed .sidebar-toggle-btn svg {
+            transform: rotate(180deg);
+        }
+        body.sidebar-collapsed .sidebar-toggle-btn:hover svg {
+            animation: arrowWiggleReverse 0.8s ease-in-out infinite;
+        }
+
+        /* ==========================================================================
+           🎨 Empty State (2026 几何悬浮呼吸动态插画)
+           ========================================================================== */
+        .empty-state {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 48px;
+            text-align: center;
+            animation: fadeIn 0.4s ease;
+        }
+
+        .abstract-illustration {
+            width: 180px;
+            height: 140px;
+            margin-bottom: 24px;
+            position: relative;
+        }
+
+        .float-layer {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .float-layer-1 {
+            animation: floatSine 6s ease-in-out infinite;
+        }
+        .float-layer-2 {
+            animation: floatSine 4s ease-in-out infinite;
+            animation-delay: -1.5s;
+        }
+        .float-layer-3 {
+            animation: floatSine 8s ease-in-out infinite;
+            animation-delay: -3s;
+        }
+
+        .empty-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-main);
+            margin-bottom: 6px;
+        }
+
+        .empty-subtitle {
+            font-size: 12px;
+            color: var(--text-muted);
+            max-width: 340px;
+            line-height: 1.6;
+        }
+
+        /* 顶部操作条 (从 56px 增高为 64px，拉开呼吸感) */
+        .preview-header {
+            padding: 18px 40px 18px 72px;
+            background-color: var(--sidebar-bg);
+            border-bottom: 1px solid var(--sidebar-border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 5;
+            height: 64px;
+        }
+
+        .current-file-details {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+        }
+
+        .current-file-title {
+            font-size: 14.5px;
+            font-weight: 700;
+            color: var(--text-main);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .current-file-size {
+            font-size: 10px;
+            background-color: var(--brand-light);
+            color: var(--brand-color);
+            padding: 2.5px 7px;
+            border-radius: var(--radius-sm);
+            font-weight: 600;
+        }
+
+        .actions-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .md-theme-selector {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--text-muted);
+            border-right: 1px solid var(--sidebar-border);
+            padding-right: 12px;
+        }
+
+        .md-theme-select {
+            padding: 4px 8px;
+            border: 1px solid var(--sidebar-border);
+            background-color: transparent;
+            color: var(--text-main);
+            border-radius: var(--radius-sm);
+            font-size: 11px;
+            outline: none;
+            cursor: pointer;
+            transition: var(--fast-transition);
+        }
+
+        .md-theme-select:hover {
+            border-color: var(--brand-color);
+        }
+
+        /* 扁平化圆角轻按钮 */
+        .action-btn {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 6px 10px;
+            border: none !important;
+            background-color: transparent !important;
+            color: var(--text-muted);
+            border-radius: var(--radius-sm);
+            font-size: 11.5px;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            transition: var(--fast-transition);
+        }
+
+        .action-btn:hover {
+            color: var(--brand-color);
+            background-color: var(--brand-light) !important;
+            transform: translateY(-0.5px);
+        }
+
+        .action-btn svg {
+            width: 13px;
+            height: 13px;
+            fill: none;
+            stroke-width: 1.8;
+            transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .action-btn:hover svg {
+            transform: scale(1.08);
+        }
+
+        /* 🎨 右上角动作图标功能性彩色微渲染 */
+        /* 1. 原文件打开 - 活力冷浅橙 */
+        #openBtn svg {
+            stroke: #ea580c !important;
+        }
+        [data-theme="dark"] #openBtn svg {
+            stroke: #f97316 !important;
+        }
+
+        /* 2. 导出 PDF - PDF 经典红色 */
+        #exportPdfBtn svg path,
+        #exportPdfBtn svg rect {
+            stroke: #cf222e !important;
+        }
+        [data-theme="dark"] #exportPdfBtn svg path,
+        [data-theme="dark"] #exportPdfBtn svg rect {
+            stroke: #f85149 !important;
+        }
+
+        /* 3. 下载文件 - 经典翡翠绿 */
+        #downloadBtn svg {
+            stroke: #1a7f37 !important;
+        }
+        [data-theme="dark"] #downloadBtn svg {
+            stroke: #3fb950 !important;
+        }
+
+        /* ==========================================================================
+           🔍 预览主体与扁平黄金版心容器 (Notion 风格全扁平重构)
+           ========================================================================== */
+        .preview-body {
+            flex: 1;
+            overflow: auto;
+            position: relative;
+            background-color: var(--bg-main);
+            padding: 36px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+        }
+
+        /* 骨架流光加载蒙层 */
+        .loader-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--bg-main);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s ease;
+        }
+
+        .loader-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* 现代流光骨架屏 (Skeleton screen) */
+        .skeleton-shimmer-container {
+            width: 100%;
+            max-width: 820px;
+            padding: 60px 52px;
+            background-color: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius-lg);
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            margin: 16px auto 36px auto;
+        }
+
+        .skeleton-block {
+            height: 18px;
+            background: linear-gradient(90deg, var(--bg-main) 25%, var(--sidebar-border) 37%, var(--bg-main) 63%);
+            background-size: 400% 100%;
+            animation: skeletonLoading 1.4s ease infinite;
+            border-radius: var(--radius-sm);
+        }
+
+        .skeleton-title {
+            width: 40%;
+            height: 28px;
+            margin-bottom: 8px;
+        }
+
+        .skeleton-text-1 { width: 90%; }
+        .skeleton-text-2 { width: 100%; }
+        .skeleton-text-3 { width: 75%; }
+
+        /* 主预览卡片 (精致扁平纸质圆角卡片，引入极度呼吸感间距) */
+        .renderer-container {
+            width: 100%;
+            max-width: 820px;
+            background-color: var(--card-bg);
+            border: 1px solid var(--card-border) !important;
+            border-radius: var(--radius-lg) !important;
+            box-shadow: var(--shadow-md) !important;
+            padding: 60px 52px;
+            min-height: 100%;
+            margin: 16px auto 36px auto;
+            animation: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            overflow-x: hidden;
+            transition: max-width 0.35s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        /* 强力全宽模式 */
+        .renderer-container.full-width-mode {
+            max-width: 100% !important;
+            padding: 48px 60px;
+            margin: 0;
+            border-radius: 0 !important;
+            border: none !important;
+        }
+
+        /* 针对小屏幕设备进行内边距自适应折叠 */
+        @media (max-width: 768px) {
+            .renderer-container {
+                padding: 24px 16px;
+                margin: 0;
+            }
+        }
+
+        /* ⚡ 全局统一 Markdown 代码与代码块排版优化 (防止自动折行乱作一团) */
+        .markdown-body pre {
+            background-color: var(--brand-light) !important;
+            border: 1px solid var(--sidebar-border) !important;
+            padding: 16px !important;
+            border-radius: var(--radius-md) !important;
+            white-space: pre !important;
+            word-wrap: normal !important;
+            overflow-x: auto !important;
+            position: relative;
+        }
+
+        .markdown-body code {
+            font-family: 'Fira Code', ui-monospace, SFMono-Regular, Consolas, monospace !important;
+            font-size: 13.5px !important;
+            background-color: var(--brand-light) !important;
+            color: var(--text-main) !important;
+            padding: 2px 5px !important;
+            border-radius: 4px !important;
+        }
+
+        .markdown-body pre code {
+            padding: 0 !important;
+            background-color: transparent !important;
+            color: inherit !important;
+            border-radius: 0 !important;
+        }
+
+        /* 📋 代码一键复制按钮样式 (Notion 级精细绝对定位，安全 !important 锁定) */
+        .code-copy-btn {
+            position: absolute !important;
+            top: 10px !important;
+            right: 10px !important;
+            z-index: 100 !important;
+            background-color: var(--sidebar-bg) !important;
+            border: 1px solid var(--sidebar-border) !important;
+            color: var(--text-muted) !important;
+            width: 28px !important;
+            height: 28px !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            border-radius: var(--radius-sm) !important;
+            cursor: pointer !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            opacity: 0 !important;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+            box-shadow: none !important;
+        }
+
+        pre:hover .code-copy-btn {
+            opacity: 1 !important;
+        }
+
+        .code-copy-btn:hover {
+            color: var(--brand-color) !important;
+            border-color: var(--brand-color) !important;
+            background-color: var(--brand-light) !important;
+            transform: scale(1.05) !important;
+        }
+
+        @media print {
+            .code-copy-btn {
+                display: none !important;
+            }
+        }
+
+        /* Markdown 中的图片支持灯箱手势，变焦光标 */
+        .markdown-body img {
+            cursor: zoom-in;
+            transition: transform 0.2s ease;
+        }
+        .markdown-body img:hover {
+            transform: scale(1.01);
+        }
+
+        /* ==========================================================================
+           🔔 Toast 提示
+           ========================================================================== */
+        .toast-container {
+            position: fixed;
+            top: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 9999;
+            pointer-events: none;
+        }
+
+        .toast-item {
+            padding: 8px 16px;
+            border-radius: var(--radius-md);
+            background: var(--sidebar-bg);
+            border: 1px solid var(--sidebar-border);
+            box-shadow: var(--shadow-pop);
+            color: var(--text-main);
+            font-size: 12px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transform: translateY(-10px);
+            opacity: 0;
+            animation: toastIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            pointer-events: auto;
+        }
+
+        .toast-item svg {
+            width: 14px;
+            height: 14px;
+            stroke-width: 2;
+            fill: none;
+        }
+
+        .toast-item.success svg { stroke: var(--success); }
+        .toast-item.error svg { stroke: var(--accent); }
+        .toast-item.info svg { stroke: var(--brand-color); }
+
+        .toast-item.fade-out {
+            animation: toastOut 0.2s ease forwards;
+        }
+
+        /* ==========================================================================
+           🎨 自定义主题色选择器面板样式
+           ========================================================================== */
+        .brand-color-picker-container {
+            position: relative;
+            display: inline-block;
+            margin-right: 8px;
+        }
+
+        .color-palette-popover {
+            position: absolute;
+            top: 36px;
+            right: 0;
+            background-color: var(--sidebar-bg);
+            border: 1px solid var(--sidebar-border);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-pop);
+            padding: 16px;
+            z-index: 1000;
+            width: 220px; /* 宽度调宽 */
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            animation: fadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .palette-title {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-weight: 600;
+            margin-bottom: 2px;
+            text-align: left;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .palette-presets {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 6px;
+        }
+
+        .preset-color {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .preset-color:hover {
+            transform: scale(1.2);
+        }
+
+        .palette-divider {
+            height: 1px;
+            background-color: var(--sidebar-border);
+            margin: 4px 0;
+        }
+
+        .palette-custom-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 11.5px;
+            color: var(--text-muted);
+        }
+
+        #customColorPicker {
+            border: none;
+            background: none;
+            width: 28px;
+            height: 20px;
+            cursor: pointer;
+            outline: none;
+            padding: 0;
+        }
+
+        /* 工作区背景模式选择 */
+        .bg-mode-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+        }
+        
+        .bg-mode-btn {
+            padding: 6px 2px;
+            background-color: var(--sidebar-bg);
+            border: 1px solid var(--sidebar-border);
+            border-radius: var(--radius-sm);
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: var(--fast-transition);
+            text-align: center;
+        }
+        
+        .bg-mode-btn:hover {
+            color: var(--brand-color);
+            border-color: var(--brand-color);
+            background-color: var(--brand-light);
+        }
+        
+        .bg-mode-btn.active {
+            color: #ffffff !important;
+            background-color: var(--brand-color) !important;
+            border-color: var(--brand-color) !important;
+        }
+        
+        [data-theme="dark"] .bg-mode-btn.active {
+            color: #080b11 !important;
+            background-color: var(--brand-color) !important;
+        }
+
+        /* 极光背景层 */
+        .aurora-bg-container {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 1; /* 在大底和侧栏/工作区之间 */
+            overflow: hidden;
+            pointer-events: none;
+        }
+        
+        [data-bg-mode="aurora"] .aurora-bg-container {
+            display: block;
+        }
+        
+        .aurora-blob {
+            position: absolute;
+            width: 50vw;
+            height: 50vw;
+            min-width: 500px;
+            min-height: 500px;
+            border-radius: 50%;
+            filter: blur(180px); /* 提升模糊度，使渐变更加平滑自然 */
+            opacity: 0.10;       /* 降低不透明度，打造极致微光质感 */
+            mix-blend-mode: multiply;
+            animation: floatBlob 25s ease infinite alternate;
+        }
+        
+        [data-theme="dark"] .aurora-blob {
+            opacity: 0.05;       /* 暗色模式下更柔和 */
+            mix-blend-mode: screen;
+        }
+        
+        .blob-1 {
+            background-color: #818cf8; /* 雅致靛蓝 */
+            top: -10%;
+            left: -10%;
+            animation-duration: 22s;
+        }
+        
+        .blob-2 {
+            background-color: #c084fc; /* 梦幻紫罗兰 */
+            bottom: -20%;
+            right: -10%;
+            animation-delay: -5s;
+            animation-duration: 32s;
+        }
+        
+        .blob-3 {
+            background-color: #f472b6; /* 珊瑚玫瑰粉 */
+            top: 30%;
+            left: 40%;
+            animation-delay: -10s;
+            animation-duration: 26s;
+        }
+        
+        @keyframes floatBlob {
+            0% { transform: translate(0px, 0px) scale(1); }
+            33% { transform: translate(60px, -80px) scale(1.15); }
+            66% { transform: translate(-80px, 40px) scale(0.95); }
+            100% { transform: translate(0px, 0px) scale(1); }
+        }
+
+        /* 不同背景模式下的微调 */
+        body {
+            position: relative;
+            z-index: 2;
+        }
+        
+        /* 1. 网格背景模式 */
+        [data-bg-mode="grid"] body {
+            background-image: radial-gradient(var(--sidebar-border) 1.2px, transparent 1.2px) !important;
+            background-size: 24px 24px !important;
+        }
+        
+        /* 2. 纸香纸暖背景模式 */
+        [data-bg-mode="warm"] body {
+            background-color: #f5edd8 !important;
+        }
+        [data-theme="dark"][data-bg-mode="warm"] body {
+            background-color: #171310 !important;
+        }
+        
+        /* 当非极简纯色模式时，让主工作区和内容区域变透明以透露出底层背景，但保留文档卡片 (.renderer-container) 自身的实体背景 */
+        [data-bg-mode="aurora"] .preview-area,
+        [data-bg-mode="aurora"] .preview-body,
+        [data-bg-mode="grid"] .preview-area,
+        [data-bg-mode="grid"] .preview-body,
+        [data-bg-mode="warm"] .preview-area,
+        [data-bg-mode="warm"] .preview-body {
+            background-color: transparent !important;
+        }
+
+        /* 扁平滑动双态控制器 (Segmented Switch) */
+        .layout-toggle-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+            background-color: var(--brand-light);
+            border: 1px solid var(--sidebar-border);
+            padding: 2px;
+            border-radius: 20px;
+            width: 100px;
+            height: 28px;
+            cursor: pointer;
+            user-select: none;
+            margin-right: 8px;
+            transition: var(--fast-transition);
+        }
+
+        .layout-toggle-wrapper:hover {
+            border-color: var(--brand-color);
+        }
+        
+        .layout-slider {
+            position: absolute;
+            left: 2px;
+            top: 2px;
+            width: 46px;
+            height: 22px;
+            background-color: var(--sidebar-bg);
+            border: 1px solid var(--sidebar-border);
+            border-radius: 18px;
+            transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+        
+        .layout-toggle-wrapper.full-mode .layout-slider {
+            transform: translateX(48px);
+        }
+        
+        .layout-option {
+            position: relative;
+            z-index: 2;
+            flex: 1;
+            text-align: center;
+            font-size: 10px;
+            font-weight: 500;
+            color: var(--text-muted);
+            transition: color 0.2s ease, font-weight 0.2s ease;
+            line-height: 22px;
+        }
+        
+        .layout-option.active {
+            color: var(--text-main);
+            font-weight: 600;
+        }
+
+        /* ==========================================================================
+           ⌨️ Command Palette ⌘K 快捷命令行面板样式
+           ========================================================================== */
+        .cmd-palette-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgba(15, 23, 42, 0.3);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 10000;
+            display: none; /* 默认完全隐藏，防止初始重绘闪烁 */
+            justify-content: center;
+            padding-top: 15vh;
+        }
+
+        .cmd-palette-backdrop.active {
+            display: flex; /* 激活时展示 */
+        }
+
+        .cmd-palette-container {
+            width: 100%;
+            max-width: 550px;
+            height: fit-content;
+            background-color: var(--sidebar-bg);
+            border: 1px solid var(--sidebar-border);
+            border-radius: 12px;
+            box-shadow: var(--shadow-pop);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .cmd-palette-search-wrapper {
+            display: flex;
+            align-items: center;
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--sidebar-border);
+            gap: 12px;
+            position: relative;
+        }
+
+        .cmd-search-icon {
+            stroke: var(--text-muted);
+            fill: none;
+            stroke-width: 2;
+            width: 15px;
+            height: 15px;
+        }
+
+        .cmd-palette-input {
+            flex: 1;
+            border: none;
+            background: none;
+            outline: none;
+            color: var(--text-main);
+            font-size: 13.5px;
+            font-weight: 500;
+        }
+
+        .cmd-esc-hint {
+            font-size: 9px;
+            font-weight: 600;
+            color: var(--text-muted);
+            border: 1px solid var(--sidebar-border);
+            padding: 2.5px 5.5px;
+            border-radius: 4px;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .cmd-palette-list {
+            overflow-y: auto;
+            max-height: 280px;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .cmd-palette-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 9px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: var(--fast-transition);
+        }
+
+        .cmd-palette-item.active-cmd {
+            background-color: var(--brand-light);
+        }
+
+        .cmd-item-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 12.5px;
+            font-weight: 500;
+            color: var(--text-main);
+        }
+
+        .cmd-item-icon {
+            font-size: 14px;
+            opacity: 0.85;
+            display: flex;
+            align-items: center;
+        }
+
+        .cmd-item-shortcut {
+            font-size: 10px;
+            color: var(--text-muted);
+            font-weight: 500;
+            background-color: var(--brand-light);
+            border: 1px solid var(--sidebar-border);
+            padding: 1px 4px;
+            border-radius: 3px;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        /* ==========================================================================
+           💡 毛玻璃超清图片灯箱样式
+           ========================================================================== */
+        .lightbox-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgba(10, 10, 10, 0.7);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            z-index: 10001;
+            display: none; /* 默认关闭 */
+            align-items: center;
+            justify-content: center;
+            cursor: zoom-out;
+            opacity: 0;
+        }
+
+        .lightbox-backdrop.active {
+            display: flex; /* 激活时展示 */
+            animation: fadeIn 0.25s ease forwards;
+        }
+
+        .lightbox-img {
+            max-width: 90%;
+            max-height: 90%;
+            object-fit: contain;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
+            transform: scale(0.95);
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .lightbox-backdrop.active .lightbox-img {
+            transform: scale(1);
+        }
+
+        /* ==========================================================================
+           🎬 动画和过度
+           ========================================================================== */
+        @keyframes flowStream {
+            0% { background-position: 100% 0; }
+            100% { background-position: -100% 0; }
+        }
+
+        @keyframes pulseRing {
+            0% { transform: scale(0.9); opacity: 0.8; }
+            70% { transform: scale(2.2); opacity: 0; }
+            100% { transform: scale(0.9); opacity: 0; }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes toastIn {
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        @keyframes toastOut {
+            to { transform: translateY(-16px); opacity: 0; }
+        }
+
+        @keyframes arrowWiggle {
+            0%, 100% { transform: translateX(0); }
+            50% { transform: translateX(-3px); }
+        }
+        @keyframes arrowWiggleReverse {
+            0%, 100% { transform: rotate(180deg) translateX(0); }
+            50% { transform: rotate(180deg) translateX(-3px); }
+        }
+
+        @keyframes skeletonLoading {
+            0% { background-position: 100% 50%; }
+            100% { background-position: 0 50%; }
+        }
+
+        @keyframes floatSine {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-8px) rotate(1.5deg); }
+        }
+
+        /* ==========================================================================
+           📊 Excel & CSV 表格极佳美化样式
+           ========================================================================== */
+        .excel-viewer {
+            display: flex;
+            flex-direction: column;
+            padding: 32px !important;
+            gap: 18px;
+            background-color: var(--card-bg) !important;
+            border: 1px solid var(--card-border) !important;
+            border-radius: var(--radius-lg) !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            box-shadow: var(--shadow-md) !important;
+            transition: var(--spring-transition);
+        }
+        .excel-tabs {
+            display: flex;
+            gap: 8px;
+            border-bottom: 1px solid var(--card-border);
+            padding-bottom: 12px;
+            margin-bottom: 4px;
+            overflow-x: auto;
+        }
+        .excel-tab {
+            padding: 8px 18px;
+            background-color: var(--sidebar-bg);
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius-md);
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: var(--fast-transition);
+            white-space: nowrap;
+            box-shadow: var(--shadow-sm);
+        }
+        .excel-tab:hover {
+            color: var(--brand-color);
+            border-color: var(--brand-color);
+            background-color: var(--brand-light);
+            transform: translateY(-1px);
+        }
+        .excel-tab.active {
+            color: #ffffff !important;
+            background-color: var(--brand-color) !important;
+            border-color: var(--brand-color) !important;
+            box-shadow: 0 4px 12px rgba(9, 105, 218, 0.25);
+        }
+        [data-theme="dark"] .excel-tab.active {
+            box-shadow: 0 4px 12px rgba(56, 189, 248, 0.25);
+            color: #080b11 !important;
+            background-color: var(--brand-color) !important;
+        }
+        .excel-table-wrapper {
+            overflow: auto;
+            width: 100%;
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius-md);
+            background-color: var(--card-bg);
+            box-shadow: var(--shadow-sm);
+            max-height: calc(100vh - 250px);
+        }
+        .excel-table-wrapper table {
+            border-collapse: collapse;
+            width: 100%;
+            min-width: 900px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-size: 13px;
+            color: var(--text-main);
+        }
+        .excel-table-wrapper td {
+            border: 1px solid var(--card-border);
+            padding: 10px 14px;
+            white-space: nowrap;
+            transition: background-color 0.2s ease;
+        }
+        /* 第一行自动转为表头样式 */
+        .excel-table-wrapper tr:first-child td {
+            background-color: var(--brand-light);
+            color: var(--brand-color);
+            font-weight: 700;
+            text-align: center;
+            border-bottom: 2px solid var(--card-border);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .excel-table-wrapper tr:not(:first-child):nth-child(even) {
+            background-color: rgba(9, 105, 218, 0.015);
+        }
+        [data-theme="dark"] .excel-table-wrapper tr:not(:first-child):nth-child(even) {
+            background-color: rgba(56, 189, 248, 0.015);
+        }
+        .excel-table-wrapper tr:not(:first-child):hover {
+            background-color: var(--brand-light);
+        }
+        .excel-table-wrapper td:hover {
+            background-color: rgba(9, 105, 218, 0.08) !important;
+        }
+        [data-theme="dark"] .excel-table-wrapper td:hover {
+            background-color: rgba(56, 189, 248, 0.12) !important;
+        }
+
+        /* ==========================================================================
+           📝 Word (Docx) 预览极致美化与明暗护眼适配
+           ========================================================================== */
+        .docx-preview-container {
+            padding: 0 !important;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100% !important;
+            background-color: transparent !important;
+        }
+        .docx-preview-container section.docx {
+            box-sizing: border-box !important;
+            width: 100% !important;
+            max-width: 820px !important;
+            padding: 60px 80px !important;
+            margin-bottom: 24px !important;
+            background-color: var(--card-bg) !important;
+            color: var(--text-main) !important;
+            border: 1px solid var(--card-border) !important;
+            border-radius: var(--radius-lg) !important;
+            box-shadow: var(--shadow-md) !important;
+            transition: var(--spring-transition) !important;
+        }
+        /* 响应式自适应 */
+        @media (max-width: 768px) {
+            .docx-preview-container section.docx {
+                padding: 30px 24px !important;
+                border-radius: 0 !important;
+                border-left: none !important;
+                border-right: none !important;
+            }
+        }
+        /* 夜间护眼模式深色反转逻辑 */
+        [data-theme="dark"] .docx-preview-container section.docx {
+            background-color: var(--card-bg) !important;
+            color: var(--text-main) !important;
+            border-color: var(--card-border) !important;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.4) !important;
+        }
+        [data-theme="dark"] .docx-preview-container section.docx p,
+        [data-theme="dark"] .docx-preview-container section.docx span,
+        [data-theme="dark"] .docx-preview-container section.docx h1,
+        [data-theme="dark"] .docx-preview-container section.docx h2,
+        [data-theme="dark"] .docx-preview-container section.docx h3,
+        [data-theme="dark"] .docx-preview-container section.docx h4,
+        [data-theme="dark"] .docx-preview-container section.docx h5,
+        [data-theme="dark"] .docx-preview-container section.docx h6,
+        [data-theme="dark"] .docx-preview-container section.docx li {
+            color: var(--text-main) !important;
+        }
+        [data-theme="dark"] .docx-preview-container section.docx * {
+            border-color: var(--card-border) !important;
+        }
+        [data-theme="dark"] .docx-preview-container section.docx table {
+            border-color: var(--card-border) !important;
+        }
+        [data-theme="dark"] .docx-preview-container section.docx td {
+            border-color: var(--card-border) !important;
+            background-color: rgba(255, 255, 255, 0.02) !important;
+        }
+
+        /* ==========================================================================
+           🎨 Markdown 风格主题切换定制 (修复切换失效与不美观)
+           ========================================================================== */
+        /* 主题框架过渡与字体 */
+        .markdown-body {
+            transition: background-color 0.35s ease, color 0.35s ease, border-color 0.35s ease !important;
+            font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif !important;
+            background-color: transparent !important; /* 让外层卡片容器背景生效 */
+        }
+        #mdContainerOuter {
+            transition: background-color 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease;
+            box-shadow: var(--shadow-md);
+        }
+
+        /* 主题 1: GitHub 经典风格 (适配系统明暗模式) */
+        [data-theme="light"] #mdContainerOuter[data-md-theme="github"] {
+            background-color: #ffffff !important;
+            border-color: #e2e8f0 !important;
+        }
+        [data-theme="light"] .markdown-body[data-md-theme="github"] {
+            color: #0f172a !important;
+        }
+        [data-theme="dark"] #mdContainerOuter[data-md-theme="github"] {
+            background-color: #0d1117 !important;
+            border-color: #30363d !important;
+        }
+        [data-theme="dark"] .markdown-body[data-md-theme="github"] {
+            color: #c9d1d9 !important;
+        }
+        [data-theme="dark"] .markdown-body[data-md-theme="github"] h1,
+        [data-theme="dark"] .markdown-body[data-md-theme="github"] h2,
+        [data-theme="dark"] .markdown-body[data-md-theme="github"] h3,
+        [data-theme="dark"] .markdown-body[data-md-theme="github"] h4,
+        [data-theme="dark"] .markdown-body[data-md-theme="github"] h5,
+        [data-theme="dark"] .markdown-body[data-md-theme="github"] h6 {
+            color: #f0f6fc !important;
+            border-bottom-color: #21262d !important;
+        }
+        [data-theme="dark"] .markdown-body[data-md-theme="github"] code {
+            background-color: rgba(110, 118, 129, 0.4) !important;
+            color: #c9d1d9 !important;
+        }
+        [data-theme="dark"] .markdown-body[data-md-theme="github"] pre {
+            background-color: #161b22 !important;
+            border-color: #30363d !important;
+        }
+        [data-theme="dark"] .markdown-body[data-md-theme="github"] blockquote {
+            color: #8b949e !important;
+            border-left-color: #30363d !important;
+        }
+        [data-theme="dark"] .markdown-body[data-md-theme="github"] hr {
+            background-color: #30363d !important;
+        }
+        [data-theme="dark"] .markdown-body[data-md-theme="github"] table td,
+        [data-theme="dark"] .markdown-body[data-md-theme="github"] table th {
+            border-color: #30363d !important;
+        }
+        [data-theme="dark"] .markdown-body[data-md-theme="github"] table tr {
+            background-color: #0d1117 !important;
+            border-top-color: #30363d !important;
+        }
+        [data-theme="dark"] .markdown-body[data-md-theme="github"] table tr:nth-child(2n) {
+            background-color: #161b22 !important;
+        }
+
+        /* 主题 2: 极光冰蓝 (Aurora / Modern Blue) */
+        #mdContainerOuter[data-md-theme="aurora"] {
+            background: linear-gradient(135deg, #f0f6fc 0%, #e6f0fa 100%) !important;
+            border-color: #cbdcf0 !important;
+        }
+        [data-theme="dark"] #mdContainerOuter[data-md-theme="aurora"] {
+            background: linear-gradient(135deg, #0b1329 0%, #112240 100%) !important;
+            border-color: #1e3a63 !important;
+            box-shadow: 0 10px 30px rgba(56, 189, 248, 0.08) !important;
+        }
+        .markdown-body[data-md-theme="aurora"] {
+            color: #1e293b !important;
+            font-family: 'Outfit', 'Noto Sans SC', sans-serif !important;
+        }
+        [data-theme="dark"] .markdown-body[data-md-theme="aurora"] {
+            color: #cbd5e1 !important;
+        }
+        .markdown-body[data-md-theme="aurora"] h1,
+        .markdown-body[data-md-theme="aurora"] h2,
+        .markdown-body[data-md-theme="aurora"] h3 {
+            color: #032b69 !important;
+            border-bottom: 2px solid #b6d3f2 !important;
+        }
+        [data-theme="dark"] .markdown-body[data-md-theme="aurora"] h1,
+        [data-theme="dark"] .markdown-body[data-md-theme="aurora"] h2,
+        [data-theme="dark"] .markdown-body[data-md-theme="aurora"] h3 {
+            color: #38bdf8 !important;
+            border-bottom: 2px solid #1e3bb3 !important;
+        }
+        .markdown-body[data-md-theme="aurora"] a {
+            color: #0969da !important;
+            font-weight: 600;
+        }
+        [data-theme="dark"] .markdown-body[data-md-theme="aurora"] a {
+            color: #38bdf8 !important;
+        }
+        .markdown-body[data-md-theme="aurora"] code {
+            background-color: rgba(9, 105, 218, 0.08) !important;
+            color: #0969da !important;
+        }
+        [data-theme="dark"] .markdown-body[data-md-theme="aurora"] code {
+            background-color: rgba(56, 189, 248, 0.12) !important;
+            color: #38bdf8 !important;
+        }
+        .markdown-body[data-md-theme="aurora"] pre {
+            background-color: rgba(9, 105, 218, 0.04) !important;
+            border-color: #cbdcf0 !important;
+        }
+        [data-theme="dark"] .markdown-body[data-md-theme="aurora"] pre {
+            background-color: #070d19 !important;
+            border-color: #1e3a63 !important;
+        }
+        .markdown-body[data-md-theme="aurora"] blockquote {
+            color: #334155 !important;
+            border-left-color: #38bdf8 !important;
+            background-color: rgba(56, 189, 248, 0.05) !important;
+        }
+        [data-theme="dark"] .markdown-body[data-md-theme="aurora"] blockquote {
+            color: #94a3b8 !important;
+            border-left-color: #38bdf8 !important;
+            background-color: rgba(56, 189, 248, 0.02) !important;
+        }
+
+        /* 主题 3: 墨香纸暖 (Warm Paper) */
+        #mdContainerOuter[data-md-theme="warm"] {
+            background-color: #faf3e8 !important;
+            border-color: #e3d2bd !important;
+            box-shadow: 0 10px 30px rgba(139, 92, 26, 0.06) !important;
+        }
+        [data-theme="dark"] #mdContainerOuter[data-md-theme="warm"] {
+            background-color: #201a15 !important;
+            border-color: #3e3226 !important;
+        }
+        .markdown-body[data-md-theme="warm"] {
+            color: #443725 !important;
+            font-family: 'Playfair Display', 'Noto Sans SC', Georgia, serif !important;
+        }
+        [data-theme="dark"] .markdown-body[data-md-theme="warm"] {
+            color: #d1c2b0 !important;
+        }
+        .markdown-body[data-md-theme="warm"] h1,
+        .markdown-body[data-md-theme="warm"] h2,
+        .markdown-body[data-md-theme="warm"] h3 {
+            color: #2c2013 !important;
+            border-bottom: 1px dashed #dcbca1 !important;
+        }
+        [data-theme="dark"] .markdown-body[data-md-theme="warm"] h1,
+        [data-theme="dark"] .markdown-body[data-md-theme="warm"] h2,
+        [data-theme="dark"] .markdown-body[data-md-theme="warm"] h3 {
+            color: #e9decb !important;
+            border-bottom: 1px dashed #3e3226 !important;
+        }
+        .markdown-body[data-md-theme="warm"] a {
+            color: #b45309 !important;
+            text-decoration: underline;
+        }
+        [data-theme="dark"] .markdown-body[data-md-theme="warm"] a {
+            color: #f59e0b !important;
+        }
+        .markdown-body[data-md-theme="warm"] code {
+            background-color: #f1e4d0 !important;
+            color: #854d0e !important;
+        }
+        [data-theme="dark"] .markdown-body[data-md-theme="warm"] code {
+            background-color: #2d241d !important;
+            color: #f59e0b !important;
+        }
+        .markdown-body[data-md-theme="warm"] pre {
+            background-color: #f3e6d2 !important;
+            border-color: #e0cca9 !important;
+        }
+        [data-theme="dark"] .markdown-body[data-md-theme="warm"] pre {
+            background-color: #171310 !important;
+            border-color: #3e3226 !important;
+        }
+        .markdown-body[data-md-theme="warm"] blockquote {
+            color: #78350f !important;
+            border-left-color: #d97706 !important;
+            background-color: #fdf6e2 !important;
+        }
+        [data-theme="dark"] .markdown-body[data-md-theme="warm"] blockquote {
+            color: #b45309 !important;
+            border-left-color: #b45309 !important;
+            background-color: #2d241d !important;
+        }
+
+        /* 主题 4: 赛博暗夜 (Cyber Dark) */
+        #mdContainerOuter[data-md-theme="cyber"] {
+            background-color: #0b0d13 !important;
+            border-color: #ff007f !important;
+            box-shadow: 0 0 25px rgba(255, 0, 127, 0.18) !important;
+        }
+        .markdown-body[data-md-theme="cyber"] {
+            color: #00ffcc !important;
+            font-family: 'Fira Code', 'Noto Sans SC', monospace !important;
+        }
+        .markdown-body[data-md-theme="cyber"] h1,
+        .markdown-body[data-md-theme="cyber"] h2,
+        .markdown-body[data-md-theme="cyber"] h3 {
+            color: #ff007f !important;
+            text-shadow: 0 0 8px rgba(255, 0, 127, 0.6);
+            border-bottom: 1px solid #ff007f !important;
+        }
+        .markdown-body[data-md-theme="cyber"] a {
+            color: #ffff00 !important;
+            text-shadow: 0 0 5px rgba(255, 255, 0, 0.6);
+            text-decoration: underline;
+        }
+        .markdown-body[data-md-theme="cyber"] code {
+            background-color: #131722 !important;
+            color: #ff007f !important;
+            border: 1px solid rgba(255, 0, 127, 0.4) !important;
+        }
+        .markdown-body[data-md-theme="cyber"] pre {
+            background-color: #07090e !important;
+            border-color: #00ffcc !important;
+            box-shadow: 0 0 12px rgba(0, 255, 204, 0.1) !important;
+        }
+        .markdown-body[data-md-theme="cyber"] blockquote {
+            color: #00ffcc !important;
+            border-left-color: #ff007f !important;
+            background-color: rgba(255, 0, 127, 0.06) !important;
+        }
+        .markdown-body[data-md-theme="cyber"] hr {
+            background-color: #ff007f !important;
+        }
+        .markdown-body[data-md-theme="cyber"] table td,
+        .markdown-body[data-md-theme="cyber"] table th {
+            border-color: rgba(0, 255, 204, 0.3) !important;
+        }
+        .markdown-body[data-md-theme="cyber"] table tr {
+            background-color: #0c0e15 !important;
+            border-top-color: rgba(0, 255, 204, 0.3) !important;
+        }
+
+        /* ==========================================================================
+           🎨 侧边栏与顶栏与背景模式的完美融合适配
+           ========================================================================== */
+        
+        /* 1. 极光模式下：侧边栏与顶栏毛玻璃透光处理 */
+        [data-bg-mode="aurora"] .sidebar {
+            background-color: rgba(255, 255, 255, 0.7) !important;
+            backdrop-filter: blur(24px) saturate(120%);
+            -webkit-backdrop-filter: blur(24px) saturate(120%);
+            border-right-color: rgba(226, 232, 240, 0.5) !important;
+        }
+        [data-theme="dark"][data-bg-mode="aurora"] .sidebar {
+            background-color: rgba(14, 19, 31, 0.7) !important;
+            border-right-color: rgba(30, 41, 59, 0.5) !important;
+        }
+        
+        [data-bg-mode="aurora"] .preview-header {
+            background-color: rgba(255, 255, 255, 0.7) !important;
+            backdrop-filter: blur(24px) saturate(120%);
+            -webkit-backdrop-filter: blur(24px) saturate(120%);
+            border-bottom-color: rgba(226, 232, 240, 0.5) !important;
+        }
+        [data-theme="dark"][data-bg-mode="aurora"] .preview-header {
+            background-color: rgba(14, 19, 31, 0.7) !important;
+            border-bottom-color: rgba(30, 41, 59, 0.5) !important;
+        }
+        
+        /* 2. 纸暖模式下：侧边栏与顶栏暖皮纸色适配 */
+        [data-bg-mode="warm"] .sidebar {
+            background-color: #faf3e8 !important;
+            border-right-color: #e3d2bd !important;
+        }
+        [data-theme="dark"][data-bg-mode="warm"] .sidebar {
+            background-color: #201a15 !important;
+            border-right-color: #3e3226 !important;
+        }
+        
+        [data-bg-mode="warm"] .preview-header {
+            background-color: #faf3e8 !important;
+            border-bottom-color: #e3d2bd !important;
+        }
+        [data-theme="dark"][data-bg-mode="warm"] .preview-header {
+            background-color: #201a15 !important;
+            border-bottom-color: #3e3226 !important;
+        }
+        [data-bg-mode="warm"] .sidebar-header,
+        [data-bg-mode="warm"] .sidebar-footer {
+            border-color: #e3d2bd !important;
+        }
+        [data-theme="dark"][data-bg-mode="warm"] .sidebar-header,
+        [data-theme="dark"][data-bg-mode="warm"] .sidebar-footer {
+            border-color: #3e3226 !important;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 极光背景层 -->
+    <div id="auroraBgContainer" class="aurora-bg-container">
+        <div class="aurora-blob blob-1"></div>
+        <div class="aurora-blob blob-2"></div>
+        <div class="aurora-blob blob-3"></div>
+    </div>
+
+    <!-- 顶部极细流光进度条 -->
+    <div id="topLoaderBar" class="top-loader-bar"></div>
+
+    <!-- 顶层 Toast 控制器 -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- 侧边栏 -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="brand-section">
+                <div class="logo-title">
+                    <!-- 科技老虎头品牌 Logo -->
+                    <img class="logo-svg-brand" src="logo.jpg" alt="Logo" width="30" height="30" style="border-radius: 6px; object-fit: cover;">
+                    <h1>文档预览</h1>
+                </div>
+                <button class="theme-toggle" id="themeToggleBtn" title="切换模式">
+                    <!-- 太阳图标 (SVG 精细优化) -->
+                    <svg id="sunIcon" class="hidden" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                    <!-- 月亮图标 -->
+                    <svg id="moonIcon" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- 本地路径选择器 -->
+            <div class="dir-config-container">
+                <div class="dir-title-row">
+                    <span>监测路径 (支持直接输入/回车保存)</span>
+                    <button class="dir-change-btn" id="dirChangeBtn">更换</button>
+                </div>
+                <div class="dir-input-wrapper">
+                    <svg class="dir-input-icon" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                    <input type="text" class="dir-input" id="dirInput" placeholder="输入监测文件夹绝对路径...">
+                </div>
+            </div>
+            
+            <!-- 搜索框 -->
+            <div class="search-container">
+                <input type="text" class="search-input" id="searchInput" placeholder="搜索文档或按 ⌘K 执行命令...">
+                <svg class="search-icon" viewBox="0 0 24 24">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <div class="kbd-hint" id="cmdPaletteOpenHint" title="打开快捷命令面板">⌘K</div>
+            </div>
+        </div>
+
+        <!-- 文件列表 -->
+        <div class="file-list-container" id="fileList">
+            <!-- 动态生成 -->
+        </div>
+
+        <div class="sidebar-footer">
+            <button class="refresh-btn" id="refreshBtn">
+                <svg viewBox="0 0 24 24">
+                    <path d="M23 4v6h-6"></path>
+                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                </svg>
+                刷新文件列表
+            </button>
+        </div>
+    </aside>
+
+    <!-- 主展示区 -->
+    <main class="preview-area">
+        
+        <!-- 全局绝对定位悬浮折叠侧栏按钮 -->
+        <button class="sidebar-toggle-btn" id="sidebarToggleBtn" title="折叠/展开侧栏">
+            <svg viewBox="0 0 24 24">
+                <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+        </button>
+
+        <!-- 预览头部 -->
+        <div class="preview-header" id="previewHeader">
+            <div class="current-file-details">
+                <div class="current-file-title" id="currentFileName">本地文档预览工具</div>
+                <div class="current-file-size" id="currentFileSize" style="display: none;">-</div>
+            </div>
+            
+            <div class="actions-group">
+                <!-- 布局宽度模式减省控制 (Segmented Control) -->
+                <div class="layout-toggle-wrapper" id="layoutToggleWrapper" title="切换宽屏撑满/居中版心">
+                    <div class="layout-slider" id="layoutSlider"></div>
+                    <div class="layout-option" id="layoutOptStandard" data-val="standard">居中</div>
+                    <div class="layout-option" id="layoutOptFull" data-val="full">全宽</div>
+                </div>
+
+                <!-- 自定义主题色选择器 -->
+                <div class="brand-color-picker-container" id="brandColorPickerContainer">
+                    <button class="action-btn" id="colorPickerBtn" title="自定义网页主题高亮色">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 14.7255 3.09032 17.1962 4.85857 19C4.85857 19 4.5 20 4 20.5C3.5 21 3 21 3 21C5 22 7.5 22 8.5 21.5C9.5 21 9.5 20 10 19.5C10.5 19 11.5 19.5 12 19.5C12 19.5 12 22 12 22Z" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path>
+                            <circle cx="7.5" cy="10.5" r="1.5" fill="#cf222e"></circle>
+                            <circle cx="11.5" cy="7.5" r="1.5" fill="#d97706"></circle>
+                            <circle cx="16.5" cy="9.5" r="1.5" fill="#0969da"></circle>
+                            <circle cx="15.5" cy="14.5" r="1.5" fill="#1a7f37"></circle>
+                        </svg>
+                        <span>主题色</span>
+                    </button>
+                    <div class="color-palette-popover hidden" id="colorPalettePopover">
+                        <div class="palette-title">主题高亮色</div>
+                        <div class="palette-presets">
+                            <span class="preset-color" style="background-color: #0969da;" data-color="#0969da" title="冷海蓝"></span>
+                            <span class="preset-color" style="background-color: #1a7f37;" data-color="#1a7f37" title="翡翠绿"></span>
+                            <span class="preset-color" style="background-color: #d97706;" data-color="#d97706" title="活力橙"></span>
+                            <span class="preset-color" style="background-color: #cf222e;" data-color="#cf222e" title="珊瑚红"></span>
+                            <span class="preset-color" style="background-color: #8b5cf6;" data-color="#8b5cf6" title="靛蓝紫"></span>
+                            <span class="preset-color" style="background-color: #24292f;" data-color="#24292f" title="极客黑"></span>
+                        </div>
+                        <div class="palette-custom-row">
+                            <span>自由取色：</span>
+                            <input type="color" id="customColorPicker" value="#0969da">
+                        </div>
+                        
+                        <div class="palette-divider"></div>
+                        
+                        <div class="palette-title">工作区背景</div>
+                        <div class="bg-mode-row" id="bgModeRow">
+                            <button class="bg-mode-btn active" data-bg="solid">极简</button>
+                            <button class="bg-mode-btn" data-bg="aurora">极光</button>
+                            <button class="bg-mode-btn" data-bg="grid">网格</button>
+                            <button class="bg-mode-btn" data-bg="warm">纸暖</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- MD 主题切换器 -->
+                <div class="md-theme-selector hidden" id="mdThemeSelector">
+                    <label for="mdThemeSelect">阅读风格：</label>
+                    <select id="mdThemeSelect" class="md-theme-select">
+                        <option value="github">🔬 极客黑白 (GitHub)</option>
+                        <option value="aurora">🌌 极光冰蓝 (Modern Blue)</option>
+                        <option value="warm">📖 墨香纸暖 (Warm Paper)</option>
+                        <option value="cyber">🎸 赛博暗夜 (Cyber Dark)</option>
+                    </select>
+                </div>
+
+                <a href="#" class="action-btn hidden" id="openBtn" target="_blank">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                        <polyline points="15 3 21 3 21 9"></polyline>
+                        <line x1="10" y1="14" x2="21" y2="3"></line>
+                    </svg>
+                    原文件打开
+                </a>
+                <button class="action-btn hidden" id="exportPdfBtn" title="将当前预览的文档保存/打印为 PDF">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></path>
+                        <rect x="6" y="14" width="12" height="8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></rect>
+                    </svg>
+                    导出 PDF
+                </button>
+                <a href="#" class="action-btn hidden" id="downloadBtn" title="在系统文件管理器中显示该文件">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    定位文件
+                </a>
+            </div>
+        </div>
+
+        <!-- 空白状态 -->
+        <div class="empty-state" id="emptyState">
+            <div class="abstract-illustration">
+                <!-- 正弦浮动折纸层 1 -->
+                <svg class="float-layer float-layer-1" viewBox="0 0 180 140">
+                    <rect x="50" y="20" width="80" height="100" rx="6" fill="var(--brand-light)" stroke="var(--brand-color)" stroke-width="1.2" />
+                    <line x1="65" y1="45" x2="115" y2="45" stroke="var(--brand-color)" stroke-width="1.2" />
+                    <line x1="65" y1="65" x2="115" y2="65" stroke="var(--brand-color)" stroke-width="1.2" />
+                    <line x1="65" y1="85" x2="95" y2="85" stroke="var(--brand-color)" stroke-width="1.2" />
+                </svg>
+                <!-- 正弦浮动折纸层 2 (倾斜文档) -->
+                <svg class="float-layer float-layer-2" viewBox="0 0 180 140">
+                    <rect x="75" y="35" width="60" height="80" rx="4" fill="var(--bg-main)" stroke="var(--text-muted)" stroke-width="1.2" transform="rotate(8, 105, 75)" opacity="0.8"/>
+                </svg>
+                <!-- 浮动的呼吸圆点 -->
+                <svg class="float-layer float-layer-3" viewBox="0 0 180 140">
+                    <circle cx="35" cy="50" r="3" fill="var(--brand-color)" opacity="0.6"/>
+                    <circle cx="150" cy="90" r="4" fill="var(--brand-color)" opacity="0.4"/>
+                    <circle cx="130" cy="30" r="2.5" fill="var(--text-muted)" opacity="0.5"/>
+                </svg>
+            </div>
+            <div class="empty-title">无选中的文档</div>
+            <div class="empty-subtitle">请在左侧列表选择文件夹或文档。系统支持在线浏览 Markdown、Word、Excel 及 CSV 文件。</div>
+        </div>
+
+        <!-- 预览主体 -->
+        <div class="preview-body hidden" id="previewBody">
+            <!-- 现代渐变流光骨架加载屏 -->
+            <div class="loader-overlay" id="loaderOverlay">
+                <div class="skeleton-shimmer-container">
+                    <div class="skeleton-block skeleton-title"></div>
+                    <div class="skeleton-block skeleton-text-1"></div>
+                    <div class="skeleton-block skeleton-text-2"></div>
+                    <div class="skeleton-block skeleton-text-3"></div>
+                </div>
+            </div>
+
+            <!-- Markdown 预览容器 (物理卡片隔离，确保 padding / border / shadow 不受主题干扰) -->
+            <div class="renderer-container hidden" id="mdContainerOuter">
+                <div class="markdown-body" id="mdContainer" data-md-theme="github"></div>
+            </div>
+
+            <!-- Word 预览容器 (同样拥有大卡片容器，保证大内边距) -->
+            <div class="renderer-container hidden" id="docxContainerOuter">
+                <div class="docx-preview-container" id="docxContainer"></div>
+            </div>
+
+            <!-- Excel 预览容器 -->
+            <div class="renderer-container excel-viewer hidden" id="xlsxContainer">
+                <div class="excel-tabs" id="excelTabs"></div>
+                <div class="excel-table-wrapper" id="excelTableWrapper"></div>
+            </div>
+        </div>
+    </main>
+
+    <!-- ⌨️ ⌘K 快捷命令控制台面板 (Command Palette Modal) -->
+    <div class="cmd-palette-backdrop" id="cmdPaletteModal">
+        <div class="cmd-palette-container">
+            <div class="cmd-palette-search-wrapper">
+                <svg viewBox="0 0 24 24" width="16" height="16" class="cmd-search-icon">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input type="text" class="cmd-palette-input" id="cmdPaletteInput" placeholder="搜索文件或输入快捷命令 (如 switch, theme, pdf)..." autocomplete="off">
+                <div class="cmd-esc-hint">ESC</div>
+            </div>
+            <div class="cmd-palette-list" id="cmdPaletteList">
+                <!-- 动态生成 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 💡 超清毛玻璃图片灯箱 (Lightbox Overlay) -->
+    <div class="lightbox-backdrop" id="lightboxOverlay">
+        <img class="lightbox-img" id="lightboxImg" src="" alt="超清放大预览">
+    </div>
+
+    <script>
+        let files = [];
+        let activeFile = null;
+        let workbook = null;
+        let currentMdTheme = localStorage.getItem('md-theme') || 'github';
+        let currentBgMode = localStorage.getItem('workspace-bg-mode') || 'solid';
+
+        // DOM
+        const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
+        const fileListEl = document.getElementById('fileList');
+        const emptyStateEl = document.getElementById('emptyState');
+        const previewHeaderEl = document.getElementById('previewHeader');
+        const previewBodyEl = document.getElementById('previewBody');
+        const loaderOverlayEl = document.getElementById('loaderOverlay');
+        const topLoaderBar = document.getElementById('topLoaderBar');
+        const searchInputEl = document.getElementById('searchInput');
+        const refreshBtnEl = document.getElementById('refreshBtn');
+        const themeToggleBtnEl = document.getElementById('themeToggleBtn');
+        const sunIconEl = document.getElementById('sunIcon');
+        const moonIconEl = document.getElementById('moonIcon');
+        const dirInputEl = document.getElementById('dirInput');
+        const dirChangeBtnEl = document.getElementById('dirChangeBtn');
+        const mdThemeSelectorEl = document.getElementById('mdThemeSelector');
+        const mdThemeSelectEl = document.getElementById('mdThemeSelect');
+
+        // 隔离层选择器
+        const mdContainerOuter = document.getElementById('mdContainerOuter');
+        const mdContainer = document.getElementById('mdContainer');
+        const docxContainerOuter = document.getElementById('docxContainerOuter');
+        const docxContainer = document.getElementById('docxContainer');
+        const xlsxContainer = document.getElementById('xlsxContainer');
+        const excelTabsEl = document.getElementById('excelTabs');
+        const excelTableWrapperEl = document.getElementById('excelTableWrapper');
+
+        const currentFileNameEl = document.getElementById('currentFileName');
+        const currentFileSizeEl = document.getElementById('currentFileSize');
+        const openBtnEl = document.getElementById('openBtn');
+        const downloadBtnEl = document.getElementById('downloadBtn');
+
+        // 宽度布局切换与自定义主题色常量与初始化
+        const layoutToggleWrapper = document.getElementById('layoutToggleWrapper');
+        const layoutOptStandard = document.getElementById('layoutOptStandard');
+        const layoutOptFull = document.getElementById('layoutOptFull');
+        const exportPdfBtn = document.getElementById('exportPdfBtn');
+        let currentLayoutMode = localStorage.getItem('layout-mode') || 'standard';
+
+        const colorPickerBtn = document.getElementById('colorPickerBtn');
+        const colorPalettePopover = document.getElementById('colorPalettePopover');
+        const customColorPicker = document.getElementById('customColorPicker');
+
+        // ⌘K 命令面板 DOM
+        const cmdPaletteModal = document.getElementById('cmdPaletteModal');
+        const cmdPaletteInput = document.getElementById('cmdPaletteInput');
+        const cmdPaletteList = document.getElementById('cmdPaletteList');
+        const cmdPaletteOpenHint = document.getElementById('cmdPaletteOpenHint');
+        let activeCmdIndex = 0;
+        let cmdItems = [];
+
+        // 灯箱 DOM
+        const lightboxOverlay = document.getElementById('lightboxOverlay');
+        const lightboxImg = document.getElementById('lightboxImg');
+
+        window.addEventListener('DOMContentLoaded', () => {
+            initTheme();
+            initMdTheme();
+            initBgMode(); // 初始化工作区背景
+            initBrandColor(); // 初始化自定义颜色
+            fetchCurrentDirectory();
+            fetchFileList();
+            applyLayoutMode(); // 页面加载时自动应用保存的布局
+
+            // 绑定背景模式选择按钮事件
+            const bgModeRow = document.getElementById('bgModeRow');
+            if (bgModeRow) {
+                bgModeRow.addEventListener('click', (e) => {
+                    const btn = e.target.closest('.bg-mode-btn');
+                    if (btn) {
+                        const mode = btn.getAttribute('data-bg');
+                        changeBgMode(mode, btn);
+                    }
+                });
+            }
+
+            refreshBtnEl.addEventListener('click', () => {
+                fetchFileList();
+                showToast('文件列表刷新成功', 'success');
+            });
+            searchInputEl.addEventListener('input', filterFiles);
+            themeToggleBtnEl.addEventListener('click', toggleTheme);
+            dirChangeBtnEl.addEventListener('click', popupFolderDialog);
+            mdThemeSelectEl.addEventListener('change', changeMdTheme);
+            
+            // 路径输入框手动输入或回车秒级切换监测目录
+            dirInputEl.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    dirInputEl.blur(); // 触发 blur
+                }
+            });
+            dirInputEl.addEventListener('blur', () => {
+                const targetDir = dirInputEl.value.trim();
+                if (!targetDir) {
+                    showToast('路径不能为空', 'error');
+                    fetchCurrentDirectory(); // 还原
+                    return;
+                }
+                setLoadingState(true);
+                window.electronAPI.setDirectory(targetDir)
+                .then(data => {
+                    setLoadingState(false);
+                    if (data.success) {
+                        dirInputEl.value = data.directory;
+                        resetPreviewArea();
+                        fetchFileList();
+                        showToast('成功秒级切换监测目录！', 'success');
+                    } else {
+                        showToast(`路径无效: ${data.error}`, 'error');
+                        fetchCurrentDirectory(); // 还原
+                    }
+                })
+                .catch(err => {
+                    setLoadingState(false);
+                    console.error('切换路径失败:', err);
+                    showToast('切换目录失败，请检查路径是否合法', 'error');
+                    fetchCurrentDirectory(); // 还原
+                });
+            });
+
+            // 侧栏折叠监听
+            sidebarToggleBtn.addEventListener('click', toggleSidebar);
+
+            // 宽度布局切换监听 (滑动滑块)
+            layoutToggleWrapper.addEventListener('click', toggleLayoutMode);
+
+            // 调色盘弹窗展开/收起
+            colorPickerBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                colorPalettePopover.classList.toggle('hidden');
+            });
+
+            // 点击外部自动收起调色盘
+            document.addEventListener('click', (e) => {
+                if (!colorPalettePopover.classList.contains('hidden') && !colorPalettePopover.contains(e.target) && e.target !== colorPickerBtn) {
+                    colorPalettePopover.classList.add('hidden');
+                }
+            });
+
+            // 预设主题色点击绑定
+            document.querySelectorAll('.preset-color').forEach(preset => {
+                preset.addEventListener('click', () => {
+                    const color = preset.getAttribute('data-color');
+                    applyBrandColor(color);
+                    showToast(`已应用主题色: ${preset.title}`, 'success');
+                });
+            });
+
+            // 取色器手动微调
+            customColorPicker.addEventListener('input', () => {
+                applyBrandColor(customColorPicker.value);
+            });
+            customColorPicker.addEventListener('change', () => {
+                applyBrandColor(customColorPicker.value);
+                showToast('已保存自定义主题色', 'success');
+            });
+
+            // PDF 导出监听
+            exportPdfBtn.addEventListener('click', () => {
+                if (!activeFile) {
+                    showToast('请先选择一个需要导出的文档', 'error');
+                    return;
+                }
+                window.print();
+            });
+
+            // ⌘K 命令控制台事件注册
+            cmdPaletteOpenHint.addEventListener('click', () => openCommandPalette());
+            document.addEventListener('keydown', handleGlobalShortcuts);
+            cmdPaletteInput.addEventListener('input', handleCommandInput);
+            cmdPaletteInput.addEventListener('keydown', handleCommandKeys);
+            cmdPaletteModal.addEventListener('click', (e) => {
+                if (e.target === cmdPaletteModal) closeCommandPalette();
+            });
+
+            // 灯箱点击关闭
+            lightboxOverlay.addEventListener('click', () => {
+                lightboxOverlay.classList.remove('active');
+            });
+        });
+
+        // ==========================================================================
+        // ⌨️ Spotlight 命令控制面板业务逻辑
+        // ==========================================================================
+        const staticCmds = [
+            { name: "🌗 切换主题模式 (明亮 / 暗黑)", action: toggleTheme, type: "system", shortcut: "T" },
+            { name: "📏 切换卡片宽度 (全宽 / 居中)", action: toggleLayoutMode, type: "system", shortcut: "W" },
+            { name: "🖨️ 导出当前文档为超清 PDF", action: () => { if(activeFile) window.print(); else showToast("请先选中一个文档","error"); }, type: "system", shortcut: "P" },
+            { name: "🎨 展开自定义主题色调色盘", action: () => colorPickerBtn.click(), type: "system", shortcut: "C" },
+            { name: "🔄 强制刷新本地文件列表", action: () => refreshBtnEl.click(), type: "system", shortcut: "R" },
+            { name: "📁 更换本地监测文件夹目录", action: popupFolderDialog, type: "system", shortcut: "D" },
+            { name: "📂 折叠或展开左侧文件树导航栏", action: toggleSidebar, type: "system", shortcut: "S" }
+        ];
+
+        function handleGlobalShortcuts(e) {
+            // Ctrl + K 或者 Cmd + K
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+                e.preventDefault();
+                if (!cmdPaletteModal.classList.contains('active')) {
+                    openCommandPalette();
+                } else {
+                    closeCommandPalette();
+                }
+            }
+            // ESC 键通用关闭
+            if (e.key === 'Escape') {
+                closeCommandPalette();
+                lightboxOverlay.classList.remove('active');
+            }
+        }
+
+        function openCommandPalette() {
+            cmdPaletteModal.classList.add('active');
+            cmdPaletteInput.value = '';
+            activeCmdIndex = 0;
+            cmdPaletteInput.focus();
+            renderCommandList();
+        }
+
+        function closeCommandPalette() {
+            cmdPaletteModal.classList.remove('active');
+            cmdPaletteInput.blur();
+        }
+
+        function renderCommandList(filterQuery = "") {
+            cmdPaletteList.innerHTML = '';
+            cmdItems = [];
+            const query = filterQuery.trim().toLowerCase();
+
+            // 1. 先加入匹配的静态系统命令
+            staticCmds.forEach(cmd => {
+                if (cmd.name.toLowerCase().includes(query)) {
+                    cmdItems.push({
+                        name: cmd.name,
+                        action: cmd.action,
+                        shortcut: cmd.shortcut,
+                        icon: "⚙️"
+                    });
+                }
+            });
+
+            // 2. 再加入匹配的本地文档文件 (极速直达文件搜索)
+            files.forEach(file => {
+                if (file.type === 'file' && file.name.toLowerCase().includes(query)) {
+                    cmdItems.push({
+                        name: `📄 浏览: ${file.name}`,
+                        action: () => {
+                            // 查找并模拟点击
+                            const fileEls = Array.from(fileListEl.querySelectorAll('.file-item'));
+                            const matchingEl = fileEls.find(el => el.querySelector('.file-name') && el.querySelector('.file-name').textContent === file.name);
+                            if (matchingEl) {
+                                selectFile(file, matchingEl);
+                            }
+                        },
+                        shortcut: "Enter",
+                        icon: "📄"
+                    });
+                }
+            });
+
+            if (cmdItems.length === 0) {
+                cmdPaletteList.innerHTML = `<div style="padding:16px; text-align:center; color:var(--text-muted); font-size:12px;">没有匹配的快捷命令或文档</div>`;
+                return;
+            }
+
+            cmdItems.forEach((item, index) => {
+                const row = document.createElement('div');
+                row.className = `cmd-palette-item ${index === activeCmdIndex ? 'active-cmd' : ''}`;
+                
+                row.innerHTML = `
+                    <div class="cmd-item-left">
+                        <span class="cmd-item-icon">${item.icon}</span>
+                        <span>${item.name}</span>
+                    </div>
+                    <span class="cmd-item-shortcut">${item.shortcut}</span>
+                `;
+
+                row.addEventListener('click', () => {
+                    item.action();
+                    closeCommandPalette();
+                });
+
+                cmdPaletteList.appendChild(row);
+            });
+        }
+
+        function handleCommandInput() {
+            activeCmdIndex = 0;
+            renderCommandList(cmdPaletteInput.value);
+        }
+
+        function handleCommandKeys(e) {
+            if (cmdItems.length === 0) return;
+
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                activeCmdIndex = (activeCmdIndex + 1) % cmdItems.length;
+                renderCommandList(cmdPaletteInput.value);
+                scrollActiveCmdIntoView();
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                activeCmdIndex = (activeCmdIndex - 1 + cmdItems.length) % cmdItems.length;
+                renderCommandList(cmdPaletteInput.value);
+                scrollActiveCmdIntoView();
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                cmdItems[activeCmdIndex].action();
+                closeCommandPalette();
+            }
+        }
+
+        function scrollActiveCmdIntoView() {
+            const activeEl = cmdPaletteList.querySelector('.active-cmd');
+            if (activeEl) {
+                activeEl.scrollIntoView({ block: 'nearest' });
+            }
+        }
+
+
+        // 切换侧栏折叠状态
+        function toggleSidebar() {
+            document.body.classList.toggle('sidebar-collapsed');
+            const isCollapsed = document.body.classList.contains('sidebar-collapsed');
+            showToast(isCollapsed ? '侧栏已折叠以获得完整视野' : '侧栏已展开');
+        }
+
+        // 应用布局配置
+        function applyLayoutMode() {
+            const containers = document.querySelectorAll('.renderer-container');
+            if (currentLayoutMode === 'full') {
+                containers.forEach(c => c.classList.add('full-width-mode'));
+                layoutToggleWrapper.classList.add('full-mode');
+                layoutOptFull.classList.add('active');
+                layoutOptStandard.classList.remove('active');
+            } else {
+                containers.forEach(c => c.classList.remove('full-width-mode'));
+                layoutToggleWrapper.classList.remove('full-mode');
+                layoutOptStandard.classList.add('active');
+                layoutOptFull.classList.remove('active');
+            }
+        }
+
+        // 切换宽度布局
+        function toggleLayoutMode() {
+            currentLayoutMode = currentLayoutMode === 'standard' ? 'full' : 'standard';
+            localStorage.setItem('layout-mode', currentLayoutMode);
+            applyLayoutMode();
+            showToast(currentLayoutMode === 'full' ? '已切换至全宽自适应模式' : '已切换至居中版心模式');
+        }
+
+        // 顶部 Toast 提示
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const item = document.createElement('div');
+            item.className = `toast-item ${type}`;
+            
+            let iconSvg = '';
+            if (type === 'success') {
+                iconSvg = `<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+            } else if (type === 'error') {
+                iconSvg = `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>`;
+            } else {
+                iconSvg = `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>`;
+            }
+            
+            item.innerHTML = `${iconSvg}<span>${message}</span>`;
+            container.appendChild(item);
+            
+            setTimeout(() => {
+                item.classList.add('fade-out');
+                item.addEventListener('animationend', () => {
+                    item.remove();
+                });
+            }, 3000);
+        }
+
+        // 自定义主题色处理辅助函数
+        function hexToRgb(hex) {
+            const shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i;
+            const fullHex = hex.replace(shorthandRegex, (m, r, g, b) => r + r + g + g + b + b);
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(fullHex);
+            return result ? {
+                r: parseInt(result[1], 16),
+                g: parseInt(result[2], 16),
+                b: parseInt(result[3], 16)
+            } : null;
+        }
+
+        function applyBrandColor(hexColor) {
+            if (!hexColor) return;
+            document.documentElement.style.setProperty('--brand-color', hexColor);
+            document.documentElement.style.setProperty('--brand-hover', hexColor);
+            
+            const rgb = hexToRgb(hexColor);
+            if (rgb) {
+                // 计算出带 6% 不透明度的微透背景色，以支持列表选中态的高光
+                const lightBg = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.05)`;
+                document.documentElement.style.setProperty('--brand-light', lightBg);
+                document.documentElement.style.setProperty('--active-tint', lightBg);
+            }
+            localStorage.setItem('custom-brand-color', hexColor);
+            customColorPicker.value = hexColor;
+        }
+
+        function initBrandColor() {
+            const savedColor = localStorage.getItem('custom-brand-color');
+            if (savedColor) {
+                applyBrandColor(savedColor);
+            }
+        }
+
+        // 主题 (Light / Dark)
+        function syncHljsTheme() {
+            if (typeof hljs === 'undefined') return; // 防爆安全检查
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const lightLink = document.getElementById('hljsLight');
+            const darkLink = document.getElementById('hljsDark');
+            if (lightLink && darkLink) {
+                if (currentTheme === 'dark') {
+                    lightLink.disabled = true;
+                    darkLink.disabled = false;
+                } else {
+                    lightLink.disabled = false;
+                    darkLink.disabled = true;
+                }
+            }
+        }
+
+        // 主题 (Light / Dark)
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme');
+            const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            if (savedTheme === 'dark' || (!savedTheme && systemPrefersDark)) {
+                document.documentElement.setAttribute('data-theme', 'dark');
+                sunIconEl.classList.remove('hidden');
+                moonIconEl.classList.add('hidden');
+            } else {
+                document.documentElement.setAttribute('data-theme', 'light');
+                sunIconEl.classList.add('hidden');
+                moonIconEl.classList.remove('hidden');
+            }
+            syncHljsTheme();
+        }
+
+        // 主题切换附带缩放旋转动效
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const themeToggleBtn = document.getElementById('themeToggleBtn');
+            
+            // 按钮旋转效果
+            themeToggleBtn.style.transform = 'scale(0.8) rotate(90deg)';
+
+            setTimeout(() => {
+                if (currentTheme === 'dark') {
+                    document.documentElement.setAttribute('data-theme', 'light');
+                    localStorage.setItem('theme', 'light');
+                    sunIconEl.classList.add('hidden');
+                    moonIconEl.classList.remove('hidden');
+                    showToast('已切换至明亮模式');
+                } else {
+                    document.documentElement.setAttribute('data-theme', 'dark');
+                    localStorage.setItem('theme', 'dark');
+                    sunIconEl.classList.remove('hidden');
+                    moonIconEl.classList.add('hidden');
+                    showToast('已切换至暗黑模式');
+                }
+                syncHljsTheme();
+                themeToggleBtn.style.transform = 'scale(1) rotate(0deg)';
+            }, 150);
+        }
+
+        // Markdown 主题
+        function initMdTheme() {
+            mdThemeSelectEl.value = currentMdTheme;
+            mdContainer.setAttribute('data-md-theme', currentMdTheme);
+            mdContainerOuter.setAttribute('data-md-theme', currentMdTheme);
+        }
+
+        function changeMdTheme() {
+            currentMdTheme = mdThemeSelectEl.value;
+            localStorage.setItem('md-theme', currentMdTheme);
+            mdContainer.setAttribute('data-md-theme', currentMdTheme);
+            mdContainerOuter.setAttribute('data-md-theme', currentMdTheme);
+            showToast(`已应用风格: ${mdThemeSelectEl.options[mdThemeSelectEl.selectedIndex].text}`);
+        }
+
+        // 工作区背景模式
+        function initBgMode() {
+            document.documentElement.setAttribute('data-bg-mode', currentBgMode);
+            const buttons = document.querySelectorAll('.bg-mode-btn');
+            buttons.forEach(btn => {
+                if (btn.getAttribute('data-bg') === currentBgMode) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+        }
+
+        function changeBgMode(mode, clickedBtn) {
+            currentBgMode = mode;
+            localStorage.setItem('workspace-bg-mode', mode);
+            document.documentElement.setAttribute('data-bg-mode', mode);
+            
+            const buttons = document.querySelectorAll('.bg-mode-btn');
+            buttons.forEach(btn => btn.classList.remove('active'));
+            clickedBtn.classList.add('active');
+            
+            showToast(`背景已应用: ${clickedBtn.textContent}`);
+        }
+
+        // 当前监测路径
+        function fetchCurrentDirectory() {
+            window.electronAPI.getCurrentDirectory()
+                .then(directory => {
+                    dirInputEl.value = directory;
+                })
+                .catch(err => console.error('获取当前目录失败:', err));
+        }
+
+        // 选择文件夹
+        function popupFolderDialog() {
+            setLoadingState(true);
+            window.electronAPI.selectDirectoryDialog()
+                .then(data => {
+                    setLoadingState(false);
+                    if (data.success) {
+                        dirInputEl.value = data.directory;
+                        resetPreviewArea();
+                        fetchFileList();
+                        showToast(`已切换监测目录！`, 'success');
+                    } else if (data.reason === 'cancelled') {
+                        showToast('已取消文件夹选择');
+                    } else {
+                        showToast(`加载文件夹失败: ${data.error}`, 'error');
+                    }
+                })
+                .catch(err => {
+                    setLoadingState(false);
+                    console.error('弹框选择目录请求失败:', err);
+                    showToast('调用文件夹选择器失败', 'error');
+                });
+        }
+
+        // 钻入/钻出
+        function navigateDirectory(action, name = '') {
+            setLoadingState(true);
+            window.electronAPI.navigateDirectory(action, name)
+                .then(data => {
+                    setLoadingState(false);
+                    if (data.success) {
+                        dirInputEl.value = data.directory;
+                        resetPreviewArea();
+                        fetchFileList();
+                    } else {
+                        showToast(`进入目录失败: ${data.error}`, 'error');
+                    }
+                })
+                .catch(err => {
+                    setLoadingState(false);
+                    console.error('目录导航请求出错:', err);
+                });
+        }
+
+        function resetPreviewArea() {
+            activeFile = null;
+            emptyStateEl.style.display = 'flex';
+            emptyStateEl.classList.remove('hidden');
+            
+            // 保持头部始终显示，但切换内部操作项的显隐状态
+            previewHeaderEl.style.display = 'flex';
+            previewHeaderEl.classList.remove('hidden');
+            
+            currentFileNameEl.textContent = '本地文档预览工具';
+            currentFileSizeEl.style.display = 'none';
+            openBtnEl.classList.add('hidden');
+            downloadBtnEl.classList.add('hidden');
+            exportPdfBtn.classList.add('hidden');
+            mdThemeSelectorEl.classList.add('hidden');
+            
+            previewBodyEl.style.display = 'none';
+            previewBodyEl.classList.add('hidden');
+
+            mdContainerOuter.style.display = 'none';
+            mdContainerOuter.classList.add('hidden');
+            mdContainer.innerHTML = '';
+            
+            docxContainerOuter.style.display = 'none';
+            docxContainerOuter.classList.add('hidden');
+            docxContainer.innerHTML = '';
+            
+            excelTableWrapperEl.innerHTML = '';
+        }
+
+        // 获取并加载文件列表
+        function fetchFileList() {
+            fileListEl.innerHTML = '<div style="padding: 24px; text-align: center; color: var(--text-muted); font-size: 11px;">读取目录文档...</div>';
+            window.electronAPI.listFiles()
+                .then(data => {
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
+                    // 保存全局文件引用，以便 ⌘K 命令行全文直达搜索
+                    files = data.files || [];
+                    renderFileList(data);
+                })
+                .catch(err => {
+                    console.error('获取文件列表失败:', err);
+                    fileListEl.innerHTML = '<div style="padding: 24px; text-align: center; color: var(--accent); font-size: 11px;">目录读取失败</div>';
+                });
+        }
+
+        // 渲染列表
+        function renderFileList(data) {
+            const fileArray = data.files;
+            const isRoot = data.isRoot;
+
+            fileListEl.innerHTML = '';
+
+            // 返回上一级
+            if (!isRoot) {
+                const backItem = document.createElement('div');
+                backItem.className = 'file-item';
+                backItem.innerHTML = `
+                    <svg class="item-svg-icon" viewBox="0 0 24 24"><polyline points="11 17 6 12 11 7"></polyline><line x1="18" y1="12" x2="6" y2="12"></line></svg>
+                    <div class="file-info">
+                        <div class="file-name">返回上一级</div>
+                        <div class="file-meta">
+                            <span>返回上一层文件夹</span>
+                        </div>
+                    </div>
+                `;
+                backItem.addEventListener('click', () => navigateDirectory('back'));
+                fileListEl.appendChild(backItem);
+            }
+
+            if (fileArray.length === 0) {
+                const emptyItem = document.createElement('div');
+                emptyItem.style.padding = '36px 16px';
+                emptyItem.style.textAlign = 'center';
+                emptyItem.style.color = 'var(--text-muted)';
+                emptyItem.style.fontSize = '12px';
+                emptyItem.textContent = '当前目录暂无支持的子目录或文档';
+                fileListEl.appendChild(emptyItem);
+                return;
+            }
+
+            fileArray.forEach(file => {
+                const item = document.createElement('div');
+                item.className = 'file-item';
+                if (activeFile && activeFile.name === file.name && file.type === 'file') {
+                    item.classList.add('active');
+                }
+
+                if (file.type === 'dir') {
+                    item.innerHTML = `
+                        <svg class="item-svg-icon" style="stroke: #eab308;" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                        <div class="file-info">
+                            <div class="file-name" title="${file.name}">${file.name}</div>
+                            <div class="file-meta">
+                                <span>文件夹</span>
+                            </div>
+                        </div>
+                    `;
+                    item.addEventListener('click', () => navigateDirectory('enter', file.name));
+                } else {
+                    let iconSvg = '';
+                    const ext = file.ext.toLowerCase();
+                    if (ext === '.md') {
+                        iconSvg = `<svg class="item-svg-icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>`;
+                    } else if (ext === '.docx') {
+                        iconSvg = `<svg class="item-svg-icon" style="stroke: #2563eb;" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>`;
+                    } else if (['.xlsx', '.xls'].includes(ext)) {
+                        iconSvg = `<svg class="item-svg-icon" style="stroke: #16a34a;" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line><line x1="15" y1="3" x2="15" y2="21"></line><line x1="3" y1="9" x2="21" y2="9"></line><line x1="3" y1="15" x2="21" y2="15"></line></svg>`;
+                    } else {
+                        iconSvg = `<svg class="item-svg-icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>`;
+                    }
+
+                    const formattedSize = formatBytes(file.size);
+                    const formattedTime = new Date(file.mtime).toLocaleString('zh-CN', {
+                        month: 'numeric',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+
+                    item.innerHTML = `
+                        ${iconSvg}
+                        <div class="file-info">
+                            <div class="file-name" title="${file.name}">${file.name}</div>
+                            <div class="file-meta">
+                                <span>${formattedSize}</span>
+                                <span>${formattedTime}</span>
+                            </div>
+                        </div>
+                    `;
+
+                    item.addEventListener('click', () => selectFile(file, item));
+                }
+                fileListEl.appendChild(item);
+            });
+        }
+
+        // 加载状态 (控制顶部流光 + 流光骨架屏)
+        function setLoadingState(isLoading) {
+            if (isLoading) {
+                topLoaderBar.classList.add('loading');
+                loaderOverlayEl.classList.add('active');
+            } else {
+                topLoaderBar.classList.remove('loading');
+                loaderOverlayEl.classList.remove('active');
+            }
+        }
+
+        // 前端过滤文件
+        function filterFiles() {
+            const query = searchInputEl.value.trim().toLowerCase();
+            const items = fileListEl.querySelectorAll('.file-item');
+            items.forEach(item => {
+                const nameEl = item.querySelector('.file-name');
+                if (nameEl) {
+                    const nameText = nameEl.textContent.toLowerCase();
+                    if (nameText === '返回上一级' || nameText.includes(query)) {
+                        item.classList.remove('hidden');
+                    } else {
+                        item.classList.add('hidden');
+                    }
+                }
+            });
+        }
+
+        // 预览文件
+        function selectFile(file, element) {
+            document.querySelectorAll('.file-item').forEach(el => el.classList.remove('active'));
+            element.classList.add('active');
+            activeFile = file;
+
+            // 1. 显隐
+            emptyStateEl.style.display = 'none';
+            emptyStateEl.classList.add('hidden');
+            previewHeaderEl.style.display = 'flex';
+            previewHeaderEl.classList.remove('hidden');
+            previewBodyEl.style.display = 'flex';
+            previewBodyEl.classList.remove('hidden');
+
+            currentFileNameEl.textContent = file.name;
+            
+            // 显式展现相关元素
+            currentFileSizeEl.style.display = 'inline-block';
+            currentFileSizeEl.textContent = formatBytes(file.size);
+            
+            openBtnEl.classList.remove('hidden');
+            downloadBtnEl.classList.remove('hidden');
+            exportPdfBtn.classList.remove('hidden');
+            
+            openBtnEl.onclick = (e) => {
+                e.preventDefault();
+                window.electronAPI.openInSystem(file.name);
+            };
+            downloadBtnEl.onclick = (e) => {
+                e.preventDefault();
+                window.electronAPI.showInFolder(file.name);
+            };
+
+            // 2. 清空
+            mdContainerOuter.style.display = 'none';
+            mdContainerOuter.classList.add('hidden');
+            mdContainer.innerHTML = '';
+            
+            docxContainerOuter.style.display = 'none';
+            docxContainerOuter.classList.add('hidden');
+            docxContainer.innerHTML = '';
+            
+            xlsxContainer.style.display = 'none';
+            xlsxContainer.classList.add('hidden');
+            excelTableWrapperEl.innerHTML = '';
+            
+            mdThemeSelectorEl.classList.add('hidden');
+
+            setLoadingState(true);
+            const ext = file.ext.toLowerCase();
+            
+            const readEncoding = (ext === '.md' || ext === '.csv') ? 'utf-8' : 'binary';
+            window.electronAPI.readFile(file.name, readEncoding)
+                .then(data => {
+                    let processedData = data;
+                    if (readEncoding === 'binary') {
+                        // Data from IPC for binary is a Uint8Array; convert it to ArrayBuffer for docx/xlsx previews
+                        processedData = data.buffer;
+                    }
+
+                    if (ext === '.md') {
+                        renderMarkdown(processedData);
+                        mdThemeSelectorEl.classList.remove('hidden'); 
+                    } 
+                    else if (ext === '.docx') renderDocx(processedData);
+                    else if (['.xlsx', '.xls'].includes(ext)) renderExcel(processedData);
+                    else if (ext === '.csv') renderCsv(processedData);
+                    
+                    // 确保新展现的卡片容器能够立即与当前的布局宽度状态保持同步
+                    applyLayoutMode();
+                })
+                .catch(err => {
+                    console.error('加载文件失败:', err);
+                    showToast(`加载文档失败: ${err.message}`, 'error');
+                    setLoadingState(false);
+                });
+        }
+
+        function getAbsolutePath(src) {
+            if (/^[a-zA-Z]:[\\/]/i.test(src) || src.startsWith('/') || src.startsWith('\\')) {
+                return src; // 已经是绝对路径
+            }
+            const base = dirInputEl.value || '';
+            const sep = base.includes('/') ? '/' : '\\';
+            return base + (base.endsWith(sep) ? '' : sep) + src;
+        }
+
+        // Markdown 渲染
+        function renderMarkdown(text) {
+            try {
+                // 配置 marked 自定义图片渲染，同步解析本地路径，避免浏览器提前触发错误的 file:// 加载
+                const renderer = new marked.Renderer();
+                renderer.image = function(hrefOrObj, title, textVal) {
+                    let href = hrefOrObj;
+                    let text = textVal;
+                    let imgTitle = title;
+                    if (typeof hrefOrObj === 'object' && hrefOrObj !== null) {
+                        href = hrefOrObj.href;
+                        text = hrefOrObj.text;
+                        imgTitle = hrefOrObj.title;
+                    }
+
+                    if (href && !/^https?:\/\//i.test(href) && !/^data:/i.test(href)) {
+                        let rawSrc = href;
+                        try {
+                            rawSrc = decodeURIComponent(href);
+                        } catch (e) {
+                            rawSrc = href;
+                        }
+                        const absPath = getAbsolutePath(rawSrc);
+                        const localUrl = `local-file:///${absPath.replace(/\\/g, '/')}`;
+                        return `<img src="${localUrl}" alt="${text || ''}" title="${imgTitle || ''}">`;
+                    }
+                    return `<img src="${href}" alt="${text || ''}" title="${imgTitle || ''}">`;
+                };
+
+                mdContainer.innerHTML = marked.parse(text, { renderer: renderer });
+                
+                // 再次提取渲染后的图片进行灯箱绑定
+                const imgs = mdContainer.querySelectorAll('img');
+
+                // 一键复制代码块优化 (悬浮显示复制按钮，带成功勾选动画与 Toast)
+                const pres = mdContainer.querySelectorAll('pre');
+                pres.forEach(pre => {
+                    const copyBtn = document.createElement('button');
+                    copyBtn.className = 'code-copy-btn';
+                    copyBtn.title = '复制代码';
+                    copyBtn.innerHTML = `
+                        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                    `;
+                    copyBtn.addEventListener('click', (e) => {
+                        e.stopPropagation(); // 阻止事件冒泡
+                        const codeEl = pre.querySelector('code');
+                        const codeText = codeEl ? codeEl.innerText : pre.innerText;
+                        navigator.clipboard.writeText(codeText)
+                            .then(() => {
+                                showToast('代码已成功复制到剪贴板！', 'success');
+                                copyBtn.innerHTML = `
+                                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="#059669" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                        <polyline points="20 6 9 17 4 12"></polyline>
+                                    </svg>
+                                `;
+                                setTimeout(() => {
+                                    copyBtn.innerHTML = `
+                                        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                        </svg>
+                                    `;
+                                }, 2000);
+                            })
+                            .catch(err => {
+                                showToast('复制失败: ' + err.message, 'error');
+                            });
+                    });
+                    pre.appendChild(copyBtn);
+                });
+
+                // 调用 Highlight.js 进行代码块语法彩色高亮 (加安全防爆检查)
+                if (typeof hljs !== 'undefined') {
+                    mdContainer.querySelectorAll('pre code').forEach((block) => {
+                        try {
+                            hljs.highlightElement(block);
+                        } catch (err) {
+                            console.warn('语法高亮失败:', err);
+                        }
+                    });
+                }
+
+                // 💡 极简超清图片灯箱缩放机制绑定
+                imgs.forEach(img => {
+                    img.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        lightboxImg.src = img.src;
+                        lightboxOverlay.classList.add('active');
+                    });
+                });
+
+                mdContainerOuter.style.display = 'block';
+                mdContainerOuter.classList.remove('hidden');
+            } catch (e) {
+                mdContainer.innerHTML = `<div style="color:var(--accent);">Markdown 解析失败: ${e.message}</div>`;
+                mdContainerOuter.style.display = 'block';
+                mdContainerOuter.classList.remove('hidden');
+            } finally {
+                setLoadingState(false);
+            }
+        }
+
+        // Word 渲染
+        function renderDocx(arrayBuffer) {
+            docxContainer.innerHTML = '';
+            docxContainerOuter.style.display = 'block';
+            docxContainerOuter.classList.remove('hidden');
+            
+            docx.renderAsync(arrayBuffer, docxContainer)
+                .then(() => {
+                    console.log('Word 渲染成功');
+                    // 💡 提取 Word 中图片绑定灯箱缩放 (2026 高端细节)
+                    setTimeout(() => {
+                        const docxImgs = docxContainer.querySelectorAll('img');
+                        docxImgs.forEach(img => {
+                            img.style.cursor = 'zoom-in';
+                            img.addEventListener('click', (e) => {
+                                e.stopPropagation();
+                                lightboxImg.src = img.src;
+                                lightboxOverlay.classList.add('active');
+                            });
+                        });
+                    }, 300);
+                })
+                .catch(err => {
+                    console.error('Docx 渲染出错:', err);
+                    docxContainer.innerHTML = `<div style="padding:40px; color:var(--accent); text-align:center;">Word 文件渲染失败: ${err.message}</div>`;
+                })
+                .finally(() => {
+                    setLoadingState(false);
+                });
+        }
+
+        // Excel 渲染
+        function renderExcel(arrayBuffer) {
+            try {
+                workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
+                excelTabsEl.innerHTML = '';
+                if (workbook.SheetNames.length === 0) throw new Error('未发现工作表');
+
+                workbook.SheetNames.forEach((sheetName, index) => {
+                    const tab = document.createElement('div');
+                    tab.className = `excel-tab ${index === 0 ? 'active' : ''}`;
+                    tab.textContent = sheetName;
+                    tab.addEventListener('click', () => {
+                        document.querySelectorAll('.excel-tab').forEach(t => t.classList.remove('active'));
+                        tab.classList.add('active');
+                        switchExcelSheet(sheetName);
+                    });
+                    excelTabsEl.appendChild(tab);
+                });
+
+                switchExcelSheet(workbook.SheetNames[0]);
+                xlsxContainer.style.display = 'flex';
+                xlsxContainer.classList.remove('hidden');
+            } catch (e) {
+                excelTableWrapperEl.innerHTML = `<div style="padding:40px; color:var(--accent); text-align:center;">Excel 文件解析失败: ${e.message}</div>`;
+                xlsxContainer.style.display = 'flex';
+                xlsxContainer.classList.remove('hidden');
+            } finally {
+                setLoadingState(false);
+            }
+        }
+
+        function switchExcelSheet(sheetName) {
+            const sheet = workbook.Sheets[sheetName];
+            const html = XLSX.utils.sheet_to_html(sheet, { header: '', footer: '' });
+            excelTableWrapperEl.innerHTML = html;
+        }
+
+        // CSV 渲染
+        function renderCsv(text) {
+            try {
+                workbook = XLSX.read(text, { type: 'string' });
+                excelTabsEl.innerHTML = '';
+                const tab = document.createElement('div');
+                tab.className = 'excel-tab active';
+                tab.textContent = 'CSV 数据';
+                excelTabsEl.appendChild(tab);
+
+                switchExcelSheet(workbook.SheetNames[0]);
+                xlsxContainer.style.display = 'flex';
+                xlsxContainer.classList.remove('hidden');
+            } catch (e) {
+                excelTableWrapperEl.innerHTML = `<div style="padding:40px; color:var(--accent); text-align:center;">CSV 解析失败: ${e.message}</div>`;
+                xlsxContainer.style.display = 'flex';
+                xlsxContainer.classList.remove('hidden');
+            } finally {
+                setLoadingState(false);
+            }
+        }
+
+        function formatBytes(bytes, decimals = 2) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const dm = decimals < 0 ? 0 : decimals;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+        }
+    </script>
+</body>
+</html>
